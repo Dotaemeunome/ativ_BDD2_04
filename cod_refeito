@@ -1,0 +1,521 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+
+namespace Agenda
+{
+    public class Data
+    {
+        private int dia;
+        private int mes;
+        private int ano;
+
+        public int Dia
+        {
+            get { return dia; }
+            set { dia = value; }
+        }
+
+        public int Mes
+        {
+            get { return mes; }
+            set { mes = value; }
+        }
+
+        public int Ano
+        {
+            get { return ano; }
+            set { ano = value; }
+        }
+
+        public Data()
+        {
+            setData(1, 1, 1900);
+        }
+
+        public Data(int dia, int mes, int ano)
+        {
+            setData(dia, mes, ano);
+        }
+
+        public void setData(int dia, int mes, int ano)
+        {
+            if (!DateTime.TryParseExact(
+                    string.Format("{0:00}/{1:00}/{2:0000}", dia, mes, ano),
+                    "dd/MM/yyyy",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out DateTime data))
+            {
+                throw new ArgumentException("Data inválida.");
+            }
+
+            this.dia = data.Day;
+            this.mes = data.Month;
+            this.ano = data.Year;
+        }
+
+        public DateTime ParaDateTime()
+        {
+            return new DateTime(ano, mes, dia);
+        }
+
+        public override string ToString()
+        {
+            return string.Format("{0:00}/{1:00}/{2:0000}", dia, mes, ano);
+        }
+    }
+
+    public class Telefone
+    {
+        private string tipo;
+        private string numero;
+        private bool principal;
+
+        public string Tipo
+        {
+            get { return tipo; }
+            set { tipo = value; }
+        }
+
+        public string Numero
+        {
+            get { return numero; }
+            set { numero = value; }
+        }
+
+        public bool Principal
+        {
+            get { return principal; }
+            set { principal = value; }
+        }
+
+        public Telefone(string tipo, string numero, bool principal)
+        {
+            Tipo = tipo;
+            Numero = numero;
+            Principal = principal;
+        }
+
+        public override string ToString()
+        {
+            string marcador = Principal ? " (principal)" : "";
+            return Tipo + ": " + Numero + marcador;
+        }
+    }
+
+    public class Contato
+    {
+        private string email;
+        private string nome;
+        private Data dtNasc;
+        private List<Telefone> telefones;
+
+        public string Email
+        {
+            get { return email; }
+            set { email = value; }
+        }
+
+        public string Nome
+        {
+            get { return nome; }
+            set { nome = value; }
+        }
+
+        public Data DtNasc
+        {
+            get { return dtNasc; }
+            set { dtNasc = value; }
+        }
+
+        public List<Telefone> Telefones
+        {
+            get { return telefones; }
+        }
+
+        public Contato(string email, string nome, Data dtNasc)
+        {
+            this.email = email;
+            this.nome = nome;
+            this.dtNasc = dtNasc;
+            this.telefones = new List<Telefone>();
+        }
+
+        public int getIdade()
+        {
+            DateTime nascimento = dtNasc.ParaDateTime();
+            DateTime hoje = DateTime.Today;
+            int idade = hoje.Year - nascimento.Year;
+
+            if (nascimento.Date > hoje.AddYears(-idade).Date)
+                idade--;
+
+            return idade;
+        }
+
+        public void adicionarTelefone(Telefone t)
+        {
+            if (t == null)
+                return;
+
+            if (t.Principal)
+            {
+                foreach (Telefone telefone in telefones)
+                    telefone.Principal = false;
+            }
+            else if (telefones.Count == 0)
+            {
+                t.Principal = true;
+            }
+
+            telefones.Add(t);
+        }
+
+        public string getTelefonePrincipal()
+        {
+            Telefone telefonePrincipal = telefones.FirstOrDefault(t => t.Principal);
+            return telefonePrincipal == null ? "Não informado" : telefonePrincipal.Numero;
+        }
+
+        public override string ToString()
+        {
+            StringBuilder dados = new StringBuilder();
+            dados.AppendLine("Nome: " + Nome);
+            dados.AppendLine("E-mail: " + Email);
+            dados.AppendLine("Data de nascimento: " + DtNasc);
+            dados.AppendLine("Idade: " + getIdade() + " anos");
+            dados.AppendLine("Telefone principal: " + getTelefonePrincipal());
+            dados.AppendLine("Telefones:");
+
+            if (telefones.Count == 0)
+            {
+                dados.AppendLine("  Nenhum telefone cadastrado.");
+            }
+            else
+            {
+                foreach (Telefone telefone in telefones)
+                    dados.AppendLine("  - " + telefone);
+            }
+
+            return dados.ToString();
+        }
+
+        public override bool Equals(object obj)
+        {
+            Contato outro = obj as Contato;
+            if (outro == null)
+                return false;
+
+            return string.Equals(Email, outro.Email, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public override int GetHashCode()
+        {
+            return StringComparer.OrdinalIgnoreCase.GetHashCode(Email ?? "");
+        }
+    }
+
+    public class Contatos
+    {
+        private readonly List<Contato> agenda;
+
+        public IReadOnlyList<Contato> Agenda
+        {
+            get { return agenda.AsReadOnly(); }
+        }
+
+        public Contatos()
+        {
+            agenda = new List<Contato>();
+        }
+
+        public bool adicionar(Contato c)
+        {
+            if (c == null || agenda.Contains(c))
+                return false;
+
+            agenda.Add(c);
+            return true;
+        }
+
+        public Contato pesquisar(Contato c)
+        {
+            if (c == null)
+                return null;
+
+            int posicao = agenda.IndexOf(c);
+            return posicao == -1 ? null : agenda[posicao];
+        }
+
+        public bool alterar(Contato c)
+        {
+            if (c == null)
+                return false;
+
+            int posicao = agenda.IndexOf(c);
+            if (posicao == -1)
+                return false;
+
+            agenda[posicao] = c;
+            return true;
+        }
+
+        public bool alterar(string emailAtual, Contato novoContato)
+        {
+            Contato atual = pesquisar(new Contato(emailAtual, "", new Data(1, 1, 1900)));
+            if (atual == null || novoContato == null)
+                return false;
+
+            Contato contatoComNovoEmail = pesquisar(novoContato);
+            if (contatoComNovoEmail != null && !ReferenceEquals(atual, contatoComNovoEmail))
+                return false;
+
+            int posicao = agenda.IndexOf(atual);
+            agenda[posicao] = novoContato;
+            return true;
+        }
+
+        public bool remover(Contato c)
+        {
+            if (c == null)
+                return false;
+
+            return agenda.Remove(c);
+        }
+    }
+
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            Contatos agenda = new Contatos();
+            int opcao;
+
+            do
+            {
+                ExibirMenu();
+                opcao = LerInteiro("Escolha uma opção: ");
+                Console.WriteLine();
+
+                switch (opcao)
+                {
+                    case 0:
+                        Console.WriteLine("Saindo da agenda...");
+                        break;
+                    case 1:
+                        AdicionarContato(agenda);
+                        break;
+                    case 2:
+                        PesquisarContato(agenda);
+                        break;
+                    case 3:
+                        AlterarContato(agenda);
+                        break;
+                    case 4:
+                        RemoverContato(agenda);
+                        break;
+                    case 5:
+                        ListarContatos(agenda);
+                        break;
+                    default:
+                        Console.WriteLine("Opção inválida!");
+                        break;
+                }
+
+                if (opcao != 0)
+                {
+                    Console.WriteLine("\nPressione ENTER para continuar...");
+                    Console.ReadLine();
+                }
+            } while (opcao != 0);
+        }
+
+        private static void ExibirMenu()
+        {
+            Console.Clear();
+            Console.WriteLine("==================== AGENDA ====================");
+            Console.WriteLine("0. Sair");
+            Console.WriteLine("1. Adicionar contato");
+            Console.WriteLine("2. Pesquisar contato");
+            Console.WriteLine("3. Alterar contato");
+            Console.WriteLine("4. Remover contato");
+            Console.WriteLine("5. Listar contatos");
+            Console.WriteLine("=================================================");
+        }
+
+        private static void AdicionarContato(Contatos agenda)
+        {
+            Contato contato = LerContato();
+
+            if (agenda.adicionar(contato))
+                Console.WriteLine("Contato adicionado com sucesso!");
+            else
+                Console.WriteLine("Erro: já existe um contato com esse e-mail.");
+        }
+
+        private static void PesquisarContato(Contatos agenda)
+        {
+            string email = LerTexto("E-mail do contato: ");
+            Contato contato = agenda.pesquisar(CriarContatoDePesquisa(email));
+
+            if (contato == null)
+                Console.WriteLine("Contato não encontrado.");
+            else
+                Console.WriteLine(contato);
+        }
+
+        private static void AlterarContato(Contatos agenda)
+        {
+            string emailAtual = LerTexto("E-mail do contato que será alterado: ");
+            Contato contatoAtual = agenda.pesquisar(CriarContatoDePesquisa(emailAtual));
+
+            if (contatoAtual == null)
+            {
+                Console.WriteLine("Contato não encontrado.");
+                return;
+            }
+
+            Console.WriteLine("Digite os novos dados do contato.");
+            Contato novoContato = LerContato();
+
+            if (agenda.alterar(emailAtual, novoContato))
+                Console.WriteLine("Contato alterado com sucesso!");
+            else
+                Console.WriteLine("Erro: o novo e-mail já pertence a outro contato.");
+        }
+
+        private static void RemoverContato(Contatos agenda)
+        {
+            string email = LerTexto("E-mail do contato a remover: ");
+            Contato contato = agenda.pesquisar(CriarContatoDePesquisa(email));
+
+            if (contato != null && agenda.remover(contato))
+                Console.WriteLine("Contato removido com sucesso!");
+            else
+                Console.WriteLine("Contato não encontrado.");
+        }
+
+        private static void ListarContatos(Contatos agenda)
+        {
+            if (agenda.Agenda.Count == 0)
+            {
+                Console.WriteLine("Nenhum contato cadastrado.");
+                return;
+            }
+
+            Console.WriteLine("================ CONTATOS =================");
+            foreach (Contato contato in agenda.Agenda)
+            {
+                Console.WriteLine(contato);
+                Console.WriteLine("--------------------------------------------");
+            }
+        }
+
+        private static Contato LerContato()
+        {
+            string email = LerTexto("E-mail: ");
+            string nome = LerTexto("Nome: ");
+            Data dataNascimento = LerData();
+            Contato contato = new Contato(email, nome, dataNascimento);
+
+            int quantidadeTelefones = LerInteiroNaoNegativo("Quantidade de telefones: ");
+            for (int i = 0; i < quantidadeTelefones; i++)
+            {
+                Console.WriteLine("Telefone " + (i + 1) + ":");
+                string tipo = LerTexto("  Tipo: ");
+                string numero = LerTexto("  Número: ");
+                bool principal = LerSimNao("  É o telefone principal? (S/N): ");
+                contato.adicionarTelefone(new Telefone(tipo, numero, principal));
+            }
+
+            return contato;
+        }
+
+        private static Data LerData()
+        {
+            while (true)
+            {
+                int dia = LerInteiro("Dia de nascimento: ");
+                int mes = LerInteiro("Mês de nascimento: ");
+                int ano = LerInteiro("Ano de nascimento: ");
+
+                try
+                {
+                    Data data = new Data(dia, mes, ano);
+                    if (data.ParaDateTime() > DateTime.Today)
+                    {
+                        Console.WriteLine("A data de nascimento não pode estar no futuro.");
+                        continue;
+                    }
+
+                    return data;
+                }
+                catch (ArgumentException)
+                {
+                    Console.WriteLine("Data inválida. Digite uma data existente.");
+                }
+            }
+        }
+
+        private static Contato CriarContatoDePesquisa(string email)
+        {
+            return new Contato(email, "", new Data(1, 1, 1900));
+        }
+
+        private static int LerInteiro(string mensagem)
+        {
+            int valor;
+            while (true)
+            {
+                Console.Write(mensagem);
+                if (int.TryParse(Console.ReadLine(), out valor))
+                    return valor;
+
+                Console.WriteLine("Digite um número inteiro válido.");
+            }
+        }
+
+        private static int LerInteiroNaoNegativo(string mensagem)
+        {
+            int valor;
+            do
+            {
+                valor = LerInteiro(mensagem);
+                if (valor < 0)
+                    Console.WriteLine("O valor não pode ser negativo.");
+            } while (valor < 0);
+
+            return valor;
+        }
+
+        private static bool LerSimNao(string mensagem)
+        {
+            while (true)
+            {
+                string resposta = LerTexto(mensagem);
+                if (resposta.Equals("S", StringComparison.OrdinalIgnoreCase))
+                    return true;
+                if (resposta.Equals("N", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                Console.WriteLine("Responda apenas com S ou N.");
+            }
+        }
+
+        private static string LerTexto(string mensagem)
+        {
+            while (true)
+            {
+                Console.Write(mensagem);
+                string texto = Console.ReadLine();
+                if (!string.IsNullOrWhiteSpace(texto))
+                    return texto.Trim();
+
+                Console.WriteLine("O campo não pode ficar vazio.");
+            }
+        }
+    }
+}
